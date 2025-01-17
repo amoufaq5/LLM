@@ -1,0 +1,179 @@
+# Main Code for Medical AI Platform
+# This is a modular structure to create a unique large language model (LLM) for the pharmaceutical and medical field
+
+import os
+import numpy as np
+import pandas as pd
+import torch
+from torch import nn
+from torch.utils.data import DataLoader, Dataset
+from fastapi import FastAPI, UploadFile, File
+from pydantic import BaseModel
+import uvicorn
+from PIL import Image
+from torchvision import transforms
+import requests
+
+# Custom Dataset for Text Data
+class MedicalTextDataset(Dataset):
+    def __init__(self, texts, labels, tokenizer, max_length):
+        self.texts = texts
+        self.labels = labels
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+
+    def __len__(self):
+        return len(self.texts)
+
+    def __getitem__(self, idx):
+        text = self.texts[idx]
+        label = self.labels[idx]
+        encoding = self.tokenizer(text, max_length=self.max_length, padding='max_length', truncation=True, return_tensors="pt")
+        return {
+            'input_ids': encoding['input_ids'].squeeze(0),
+            'attention_mask': encoding['attention_mask'].squeeze(0),
+            'label': torch.tensor(label, dtype=torch.long)
+        }
+
+# Define the Custom LLM Model
+class CustomMedicalLLM(nn.Module):
+    def __init__(self, vocab_size, embed_size, num_classes):
+        super(CustomMedicalLLM, self).__init__()
+        self.embedding = nn.Embedding(vocab_size, embed_size)
+        self.lstm = nn.LSTM(embed_size, 128, batch_first=True, bidirectional=True)
+        self.fc = nn.Linear(128 * 2, num_classes)
+
+    def forward(self, input_ids, attention_mask):
+        embedded = self.embedding(input_ids)
+        lstm_out, _ = self.lstm(embedded)
+        pooled = torch.mean(lstm_out, dim=1)
+        output = self.fc(pooled)
+        return output
+
+# Training Script for CustomMedicalLLM
+class MedicalLLMTrainer:
+    def __init__(self, model, dataset, batch_size, learning_rate, num_epochs):
+        self.model = model
+        self.dataset = dataset
+        self.batch_size = batch_size
+        self.learning_rate = learning_rate
+        self.num_epochs = num_epochs
+        self.dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+        self.criterion = nn.CrossEntropyLoss()
+        self.optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    def train(self):
+        for epoch in range(self.num_epochs):
+            epoch_loss = 0.0
+            for batch in self.dataloader:
+                input_ids = batch['input_ids']
+                attention_mask = batch['attention_mask']
+                labels = batch['label']
+
+                self.optimizer.zero_grad()
+                outputs = self.model(input_ids, attention_mask)
+                loss = self.criterion(outputs, labels)
+                loss.backward()
+                self.optimizer.step()
+
+                epoch_loss += loss.item()
+
+            print(f"Epoch {epoch + 1}/{self.num_epochs}, Loss: {epoch_loss / len(self.dataloader)}")
+
+# Image Processing for Scans
+class MedicalImageProcessor:
+    def __init__(self):
+        self.transforms = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+
+    def preprocess(self, image: Image.Image):
+        return self.transforms(image).unsqueeze(0)
+
+    def predict(self, model, image: Image.Image):
+        input_tensor = self.preprocess(image)
+        with torch.no_grad():
+            output = model(input_tensor)
+        return torch.argmax(output, dim=1).item()
+
+# Training Script for Image Model
+class MedicalImageTrainer:
+    def __init__(self, model, dataloader, learning_rate, num_epochs):
+        self.model = model
+        self.dataloader = dataloader
+        self.criterion = nn.CrossEntropyLoss()
+        self.optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+        self.num_epochs = num_epochs
+
+    def train(self):
+        for epoch in range(self.num_epochs):
+            epoch_loss = 0.0
+            for images, labels in self.dataloader:
+                self.optimizer.zero_grad()
+                outputs = self.model(images)
+                loss = self.criterion(outputs, labels)
+                loss.backward()
+                self.optimizer.step()
+                epoch_loss += loss.item()
+            print(f"Epoch {epoch + 1}/{self.num_epochs}, Loss: {epoch_loss / len(self.dataloader)}")
+
+# Query Medical Libraries
+class MedicalLibraryAPI:
+    @staticmethod
+    def query_library(query):
+        try:
+            # Example: Replace with actual API endpoint and parameters
+            response = requests.get(f"https://api.example.com/search?query={query}")
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return {"error": "Library query failed", "status_code": response.status_code}
+        except Exception as e:
+            return {"error": str(e)}
+
+# FastAPI Application for Serving the AI
+app = FastAPI()
+
+# Initialize Custom LLM Model and Tokenizer
+vocab_size = 50000  # Example vocabulary size
+embed_size = 300  # Embedding dimensions
+num_classes = 10  # Number of possible diagnostic categories
+llm = CustomMedicalLLM(vocab_size, embed_size, num_classes)
+tokenizer = lambda text, max_length: {  # Simple tokenizer (replace with a proper tokenizer)
+    'input_ids': torch.randint(0, vocab_size, (1, max_length)),
+    'attention_mask': torch.ones((1, max_length))
+}
+
+# Define API Endpoints
+class DiagnosisInput(BaseModel):
+    text: str
+
+@app.post("/diagnose-text")
+def diagnose_text(input_data: DiagnosisInput):
+    inputs = tokenizer(input_data.text, max_length=128)
+    input_ids = inputs['input_ids']
+    attention_mask = inputs['attention_mask']
+    with torch.no_grad():
+        logits = llm(input_ids, attention_mask)
+    predicted_class = torch.argmax(logits, dim=1).item()
+
+    # Query medical library for additional information
+    library_response = MedicalLibraryAPI.query_library(input_data.text)
+    return {"prediction": predicted_class, "library_info": library_response}
+
+@app.post("/diagnose-image")
+def diagnose_image(file: UploadFile = File(...)):
+    try:
+        image = Image.open(file.file)
+        # Placeholder for a trained model
+        model = torch.load("medical_image_model.pt")
+        processor = MedicalImageProcessor()
+        prediction = processor.predict(model, image)
+        return {"diagnosis": prediction}
+    except Exception as e:
+        return {"error": str(e)}
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
