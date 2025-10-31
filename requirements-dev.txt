@@ -1,0 +1,16 @@
+# Development Dependencies
+-r requirements.txt
+
+# Development Tools
+pre-commit>=3.5.0
+bandit>=1.7.0  # Security linting
+safety>=2.3.0  # Dependency security check
+
+# Documentation
+mkdocs>=1.5.0
+mkdocs-material>=9.4.0
+mkdocstrings[python]>=0.24.0
+
+# Profiling
+py-spy>=0.3.0
+memory-profiler>=0.61.0

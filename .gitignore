@@ -1,0 +1,170 @@
+# Lumen Medical LLM - Git Ignore
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual Environments
+venv/
+ENV/
+env/
+.venv/
+.conda/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.project
+.pydevproject
+.settings/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# Testing
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.pytest_cache/
+.hypothesis/
+
+# Type Checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+
+# Model Files (large files)
+model/checkpoints/*.bin
+model/checkpoints/*.safetensors
+model/checkpoints/*.pt
+model/checkpoints/*.pth
+*.gguf
+*.onnx
+
+# Keep structure files
+!model/checkpoints/.gitkeep
+!model/checkpoints/README.md
+
+# Data (large files)
+data/raw/**/*
+data/processed/**/*
+data/datasets/**/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/datasets/.gitkeep
+!data/**/*.md
+!data/**/*.json
+!data/**/*.yaml
+
+# Exclude sample data
+!data/samples/
+
+# Logs
+logs/
+*.log
+wandb/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache
+.cache/
+*.cache
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Frontend (Next.js)
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+frontend/build/
+frontend/.turbo/
+frontend/dist/
+
+# Frontend env
+frontend/.env*.local
+
+# Vercel
+.vercel
+
+# Documentation builds
+docs/_build/
+site/
+
+# Monitoring
+.sentry-dsn
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Compressed files (if large)
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Large media files
+*.mp4
+*.avi
+*.mov
+*.pdf
+*.psd
+
+# Medical data (HIPAA compliance - never commit)
+**/patient_data/
+**/phi/
+**/protected_health_information/
+
+# API keys and credentials
+credentials.json
+service-account.json
