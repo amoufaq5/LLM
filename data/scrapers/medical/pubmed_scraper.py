@@ -1,5 +1,5 @@
 """
-PubMed Central (PMC) scraper using E-utilities API
+PubMed Central (PMC) scraper using E-utilities API - FIXED
 Collects medical research articles for training data
 """
 
@@ -7,7 +7,7 @@ import logging
 import time
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote
 
 from data.scrapers.utils.base_scraper import BaseScraper
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class PubMedScraper(BaseScraper):
     """
-    Scraper for PubMed Central using NCBI E-utilities API
+    Scraper for PubMed using NCBI E-utilities API
 
     API Documentation: https://www.ncbi.nlm.nih.gov/books/NBK25500/
     Rate Limit: 3 requests/second without API key, 10 requests/second with key
@@ -29,7 +29,7 @@ class PubMedScraper(BaseScraper):
         output_dir: str = "data/raw/pubmed",
         api_key: Optional[str] = None,
         email: str = "research@lumen-medical.ai",
-        requests_per_second: float = 2.5,  # Conservative without API key
+        requests_per_second: float = 2.5,
     ):
         """
         Initialize PubMed scraper
@@ -40,9 +40,8 @@ class PubMedScraper(BaseScraper):
             email: Your email (required by NCBI)
             requests_per_second: Rate limit
         """
-        # Increase rate if API key provided
         if api_key:
-            requests_per_second = 9.0  # Stay under 10/sec limit
+            requests_per_second = 9.0
 
         super().__init__(
             name="PubMed",
@@ -56,7 +55,6 @@ class PubMedScraper(BaseScraper):
 
     def _build_url(self, endpoint: str, params: Dict[str, Any]) -> str:
         """Build API URL with parameters"""
-        # Add required parameters
         params["email"] = self.email
         if self.api_key:
             params["api_key"] = self.api_key
@@ -67,23 +65,25 @@ class PubMedScraper(BaseScraper):
     def search(
         self,
         query: str,
-        max_results: int = 1000,
+        max_results: int = 10000,
         retstart: int = 0,
-        retmax: int = 100,
+        retmax: int = 500,
     ) -> List[str]:
         """
         Search PubMed for articles matching query
 
         Args:
-            query: Search query (use PubMed syntax)
-            max_results: Maximum total results to return
+            query: Search query
+            max_results: Maximum total results
             retstart: Starting index
-            retmax: Results per request (max 10000)
+            retmax: Results per request
 
         Returns:
             List of PubMed IDs (PMIDs)
         """
         all_ids = []
+
+        logger.info(f"Searching PubMed: '{query}'")
 
         while retstart < max_results:
             params = {
@@ -92,6 +92,7 @@ class PubMedScraper(BaseScraper):
                 "retstart": retstart,
                 "retmax": min(retmax, max_results - retstart),
                 "retmode": "json",
+                "usehistory": "y",
             }
 
             url = self._build_url("esearch", params)
@@ -100,15 +101,25 @@ class PubMedScraper(BaseScraper):
                 response = self.get(url)
                 data = response.json()
 
+                esearch_result = data.get("esearchresult", {})
+
                 # Extract IDs
-                id_list = data.get("esearchresult", {}).get("idlist", [])
+                id_list = esearch_result.get("idlist", [])
                 all_ids.extend(id_list)
 
-                # Check if we're done
-                count = int(data.get("esearchresult", {}).get("count", 0))
-                logger.info(f"Found {count} total results, retrieved {len(all_ids)} so far")
+                # Get total count
+                count = int(esearch_result.get("count", 0))
 
-                if len(id_list) < retmax:
+                logger.info(f"Query has {count} total results, retrieved {len(all_ids)} so far...")
+
+                # Check if we got any results
+                if count == 0:
+                    logger.warning(f"No results for query: {query}")
+                    break
+
+                # Check if we're done
+                if len(id_list) < retmax or len(all_ids) >= count:
+                    logger.info(f"Retrieved all available results: {len(all_ids)}")
                     break
 
                 retstart += retmax
@@ -121,15 +132,7 @@ class PubMedScraper(BaseScraper):
         return all_ids
 
     def fetch_article(self, pmid: str) -> Optional[Dict[str, Any]]:
-        """
-        Fetch single article by PMID
-
-        Args:
-            pmid: PubMed ID
-
-        Returns:
-            Article data dictionary
-        """
+        """Fetch single article by PMID"""
         params = {
             "db": "pubmed",
             "id": pmid,
@@ -148,16 +151,7 @@ class PubMedScraper(BaseScraper):
             return None
 
     def fetch_articles_batch(self, pmids: List[str], batch_size: int = 200) -> List[Dict[str, Any]]:
-        """
-        Fetch multiple articles in batches
-
-        Args:
-            pmids: List of PubMed IDs
-            batch_size: Number of articles per request (max 500)
-
-        Returns:
-            List of article data dictionaries
-        """
+        """Fetch multiple articles in batches"""
         articles = []
 
         for i in range(0, len(pmids), batch_size):
@@ -235,10 +229,11 @@ class PubMedScraper(BaseScraper):
             year = pub_date.findtext("Year", "") if pub_date is not None else ""
             month = pub_date.findtext("Month", "") if pub_date is not None else ""
 
-            # MeSH terms (Medical Subject Headings)
+            # MeSH terms
             mesh_terms = []
             for mesh in article_elem.findall(".//MeshHeading/DescriptorName"):
-                mesh_terms.append(mesh.text)
+                if mesh.text:
+                    mesh_terms.append(mesh.text)
 
             # Keywords
             keywords = []
@@ -272,100 +267,130 @@ class PubMedScraper(BaseScraper):
     def scrape(
         self,
         queries: Optional[List[str]] = None,
-        max_articles_per_query: int = 10000,  # EXPANDED: 10K per query
+        max_articles_per_query: int = 10000,
     ) -> List[Dict[str, Any]]:
         """
-        Main scraping method - EXPANDED FOR MAXIMUM DATA COLLECTION
+        Main scraping method - FIXED QUERIES
 
         Args:
-            queries: List of search queries (uses defaults if None)
-            max_articles_per_query: Maximum articles per query (default: 10K)
+            queries: List of search queries
+            max_articles_per_query: Maximum articles per query
 
         Returns:
             List of article dictionaries
         """
-        # EXPANDED queries for comprehensive medical literature
+        # FIXED: Simplified, working queries
         if queries is None:
             queries = [
-                # Clinical trials and treatments
-                "clinical trial[Filter] AND (treatment OR therapy) AND (last 5 years[PDat])",
-                "randomized controlled trial[Filter] AND (last 5 years[PDat])",
+                # General medical topics (broad)
+                'medicine',
+                'treatment',
+                'therapy',
+                'diagnosis',
 
-                # Reviews and meta-analyses
-                "systematic review[Filter] AND medicine[MeSH] AND (last 5 years[PDat])",
-                "meta-analysis[Filter] AND (last 5 years[PDat])",
+                # Clinical trials
+                '"Clinical Trial"[Publication Type]',
+                '"Randomized Controlled Trial"[Publication Type]',
 
-                # Drug therapy and pharmacology
-                "drug therapy[MeSH] AND pharmacology[MeSH] AND (last 5 years[PDat])",
-                "pharmaceutical preparations[MeSH] AND (last 5 years[PDat])",
-                "drug interactions[MeSH] AND (last 5 years[PDat])",
-                "adverse drug reaction[MeSH] AND (last 5 years[PDat])",
+                # Reviews
+                '"Review"[Publication Type] AND medicine',
+                '"Systematic Review"[Publication Type]',
 
-                # Diagnosis and patient care
-                "patient care[MeSH] AND diagnosis[MeSH] AND (last 5 years[PDat])",
-                "diagnostic techniques[MeSH] AND (last 5 years[PDat])",
+                # Major diseases
+                'diabetes',
+                'cancer',
+                'cardiovascular disease',
+                'heart disease',
+                'hypertension',
+                'stroke',
+                'asthma',
+                'COPD',
+                'pneumonia',
+                'infection',
 
-                # Diseases by category
-                "cardiovascular diseases[MeSH] AND (last 5 years[PDat])",
-                "diabetes mellitus[MeSH] AND (last 5 years[PDat])",
-                "cancer[MeSH] AND (last 5 years[PDat])",
-                "infectious diseases[MeSH] AND (last 5 years[PDat])",
-                "neurological diseases[MeSH] AND (last 5 years[PDat])",
-                "respiratory diseases[MeSH] AND (last 5 years[PDat])",
-                "gastrointestinal diseases[MeSH] AND (last 5 years[PDat])",
-                "mental disorders[MeSH] AND (last 5 years[PDat])",
+                # Drugs and pharmacology
+                'drug therapy',
+                'pharmacology',
+                'antibiotics',
+                'chemotherapy',
+                'immunotherapy',
 
-                # Treatment modalities
-                "surgery[MeSH] AND (last 3 years[PDat])",
-                "chemotherapy[MeSH] AND (last 3 years[PDat])",
-                "immunotherapy[MeSH] AND (last 3 years[PDat])",
-                "gene therapy[MeSH] AND (last 3 years[PDat])",
+                # Mental health
+                'depression',
+                'anxiety',
+                'mental health',
 
-                # Public health
-                "epidemiology[MeSH] AND (last 5 years[PDat])",
-                "prevention and control[MeSH] AND (last 5 years[PDat])",
+                # Recent publications (last 5 years)
+                '("2020"[Date - Publication] : "2025"[Date - Publication])',
             ]
+
+        logger.info(f"Starting PubMed scraping with {len(queries)} queries")
 
         all_articles = []
         all_pmids = set()
 
-        for query in queries:
-            logger.info(f"Searching: {query}")
+        for i, query in enumerate(queries, 1):
+            logger.info(f"\n{'='*60}")
+            logger.info(f"Query {i}/{len(queries)}: {query}")
+            logger.info(f"{'='*60}")
 
-            # Search for articles
-            pmids = self.search(query, max_results=max_articles_per_query)
+            try:
+                # Search for articles
+                pmids = self.search(query, max_results=max_articles_per_query)
 
-            # Remove duplicates
-            new_pmids = [pmid for pmid in pmids if pmid not in all_pmids]
-            all_pmids.update(new_pmids)
+                if not pmids:
+                    logger.warning(f"No results for query: {query}")
+                    continue
 
-            logger.info(f"Found {len(new_pmids)} new articles for query")
+                # Remove duplicates
+                new_pmids = [pmid for pmid in pmids if pmid not in all_pmids]
+                all_pmids.update(new_pmids)
 
-            # Fetch articles in batches
-            articles = self.fetch_articles_batch(new_pmids)
-            all_articles.extend(articles)
+                logger.info(f"Found {len(new_pmids)} new unique articles")
 
-            # Save checkpoint after each query
-            self.save_checkpoint(
-                {
-                    "completed_queries": queries[: queries.index(query) + 1],
+                # Fetch articles in batches
+                articles = self.fetch_articles_batch(new_pmids)
+                all_articles.extend(articles)
+
+                # Save checkpoint
+                self.save_checkpoint({
+                    "completed_queries": i,
+                    "total_queries": len(queries),
                     "total_articles": len(all_articles),
-                    "last_updated": time.time(),
-                }
-            )
+                    "last_query": query,
+                })
 
-            # Save batch results
-            self.save_json(
-                articles,
-                f"pubmed_batch_{queries.index(query)}.json",
-                metadata={"query": query, "count": len(articles)},
-            )
+                # Save batch results
+                if articles:
+                    self.save_json(
+                        articles,
+                        f"pubmed_batch_{i:02d}.json",
+                        metadata={
+                            "query": query,
+                            "count": len(articles),
+                            "batch_number": i,
+                        },
+                    )
+
+                logger.info(f"Total unique articles so far: {len(all_articles)}")
+
+            except Exception as e:
+                logger.error(f"Error processing query '{query}': {e}")
+                continue
 
         # Save all results
+        logger.info(f"\n{'='*60}")
+        logger.info("SAVING FINAL RESULTS")
+        logger.info(f"{'='*60}")
+
         self.save_json(
             all_articles,
             "pubmed_all_articles.json",
-            metadata={"total_queries": len(queries), "total_articles": len(all_articles)},
+            metadata={
+                "total_queries": len(queries),
+                "total_articles": len(all_articles),
+                "unique_pmids": len(all_pmids),
+            },
         )
 
         return all_articles
@@ -374,13 +399,25 @@ class PubMedScraper(BaseScraper):
 # Example usage
 if __name__ == "__main__":
     logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
+    # Test with simple query first
     scraper = PubMedScraper(
-        api_key=None,  # Add your API key here
-        email="your-email@example.com",  # Replace with your email
+        api_key=None,  # Add your API key if available
+        email="your-email@example.com",
     )
 
-    articles = scraper.run()
-    print(f"\nScraped {len(articles)} articles from PubMed")
+    # Test search
+    logger.info("Testing PubMed search...")
+    test_query = "diabetes"
+    results = scraper.search(test_query, max_results=10)
+
+    if results:
+        logger.info(f"✅ Success! Found {len(results)} articles for test query")
+        logger.info("Running full scraping...")
+        articles = scraper.run()
+        print(f"\n✅ Scraped {len(articles)} articles from PubMed")
+    else:
+        logger.error("❌ Test query returned 0 results. Check your connection or API key.")
