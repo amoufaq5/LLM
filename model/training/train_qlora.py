@@ -67,9 +67,7 @@ class DataArguments:
 
 
 @dataclass
-class QLor
-
-aArguments:
+class QLoraArguments:
     """Arguments for QLoRA configuration"""
 
     lora_r: int = field(
