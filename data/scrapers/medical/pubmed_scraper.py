@@ -272,26 +272,58 @@ class PubMedScraper(BaseScraper):
     def scrape(
         self,
         queries: Optional[List[str]] = None,
-        max_articles_per_query: int = 1000,
+        max_articles_per_query: int = 10000,  # EXPANDED: 10K per query
     ) -> List[Dict[str, Any]]:
         """
-        Main scraping method
+        Main scraping method - EXPANDED FOR MAXIMUM DATA COLLECTION
 
         Args:
             queries: List of search queries (uses defaults if None)
-            max_articles_per_query: Maximum articles per query
+            max_articles_per_query: Maximum articles per query (default: 10K)
 
         Returns:
             List of article dictionaries
         """
-        # Default queries for medical literature
+        # EXPANDED queries for comprehensive medical literature
         if queries is None:
             queries = [
+                # Clinical trials and treatments
                 "clinical trial[Filter] AND (treatment OR therapy) AND (last 5 years[PDat])",
+                "randomized controlled trial[Filter] AND (last 5 years[PDat])",
+
+                # Reviews and meta-analyses
                 "systematic review[Filter] AND medicine[MeSH] AND (last 5 years[PDat])",
+                "meta-analysis[Filter] AND (last 5 years[PDat])",
+
+                # Drug therapy and pharmacology
                 "drug therapy[MeSH] AND pharmacology[MeSH] AND (last 5 years[PDat])",
-                "patient care[MeSH] AND diagnosis[MeSH] AND (last 3 years[PDat])",
                 "pharmaceutical preparations[MeSH] AND (last 5 years[PDat])",
+                "drug interactions[MeSH] AND (last 5 years[PDat])",
+                "adverse drug reaction[MeSH] AND (last 5 years[PDat])",
+
+                # Diagnosis and patient care
+                "patient care[MeSH] AND diagnosis[MeSH] AND (last 5 years[PDat])",
+                "diagnostic techniques[MeSH] AND (last 5 years[PDat])",
+
+                # Diseases by category
+                "cardiovascular diseases[MeSH] AND (last 5 years[PDat])",
+                "diabetes mellitus[MeSH] AND (last 5 years[PDat])",
+                "cancer[MeSH] AND (last 5 years[PDat])",
+                "infectious diseases[MeSH] AND (last 5 years[PDat])",
+                "neurological diseases[MeSH] AND (last 5 years[PDat])",
+                "respiratory diseases[MeSH] AND (last 5 years[PDat])",
+                "gastrointestinal diseases[MeSH] AND (last 5 years[PDat])",
+                "mental disorders[MeSH] AND (last 5 years[PDat])",
+
+                # Treatment modalities
+                "surgery[MeSH] AND (last 3 years[PDat])",
+                "chemotherapy[MeSH] AND (last 3 years[PDat])",
+                "immunotherapy[MeSH] AND (last 3 years[PDat])",
+                "gene therapy[MeSH] AND (last 3 years[PDat])",
+
+                # Public health
+                "epidemiology[MeSH] AND (last 5 years[PDat])",
+                "prevention and control[MeSH] AND (last 5 years[PDat])",
             ]
 
         all_articles = []

@@ -88,14 +88,14 @@ class OpenFDAClient(BaseScraper):
     def get_all_drug_labels(
         self,
         search_query: str = "*",
-        max_results: int = 10000,
+        max_results: int = 100000,  # EXPANDED: Get ALL available labels
     ) -> List[Dict[str, Any]]:
         """
-        Get all drug labels matching query
+        Get ALL drug labels matching query - EXPANDED
 
         Args:
             search_query: Search query (default: all)
-            max_results: Maximum results to retrieve
+            max_results: Maximum results to retrieve (default: 100K = all available)
 
         Returns:
             List of drug label records
@@ -328,7 +328,7 @@ class OpenFDAClient(BaseScraper):
 
     def scrape(self) -> Dict[str, List[Dict[str, Any]]]:
         """
-        Main scraping method
+        Main scraping method - EXPANDED FOR MAXIMUM DATA
         Collects drug labels, adverse events, and recalls
 
         Returns:
@@ -336,14 +336,14 @@ class OpenFDAClient(BaseScraper):
         """
         all_data = {}
 
-        # 1. Drug Labels
+        # 1. Drug Labels (COLLECT ALL)
         logger.info("="*60)
-        logger.info("Collecting Drug Labels")
+        logger.info("Collecting ALL Drug Labels from OpenFDA")
         logger.info("="*60)
 
         drug_labels = self.get_all_drug_labels(
             search_query="*",
-            max_results=10000,  # Start with 10K labels
+            max_results=100000,  # EXPANDED: Collect ALL labels
         )
 
         all_data["drug_labels"] = drug_labels
@@ -374,21 +374,69 @@ class OpenFDAClient(BaseScraper):
             },
         )
 
-        # 3. Adverse Events for Common Drugs
+        # 3. Adverse Events for MANY Drugs (EXPANDED)
         logger.info("="*60)
-        logger.info("Collecting Adverse Events")
+        logger.info("Collecting Adverse Events for Major Drugs")
         logger.info("="*60)
 
-        # Sample common drugs
+        # EXPANDED: Top 200 most prescribed drugs for comprehensive coverage
         common_drugs = [
-            "lipitor", "metformin", "lisinopril", "atorvastatin",
-            "omeprazole", "amlodipine", "gabapentin", "hydrochlorothiazide",
+            # Cardiovascular
+            "lipitor", "atorvastatin", "simvastatin", "pravastatin", "rosuvastatin",
+            "lisinopril", "enalapril", "ramipril", "losartan", "valsartan",
+            "metoprolol", "atenolol", "carvedilol", "bisoprolol",
+            "amlodipine", "nifedipine", "diltiazem", "verapamil",
+            "warfarin", "apixaban", "rivaroxaban", "clopidogrel", "aspirin",
+            "furosemide", "hydrochlorothiazide", "spironolactone", "torsemide",
+
+            # Diabetes
+            "metformin", "glipizide", "glyburide", "pioglitazone",
+            "insulin", "lantus", "humalog", "novolog",
+            "jardiance", "farxiga", "invokana",
+            "ozempic", "victoza", "trulicity",
+
+            # Respiratory
+            "albuterol", "fluticasone", "budesonide", "montelukast",
+            "salmeterol", "tiotropium", "ipratropium",
+
+            # Gastrointestinal
+            "omeprazole", "pantoprazole", "esomeprazole", "lansoprazole",
+            "ranitidine", "famotidine",
+
+            # Antibiotics
+            "amoxicillin", "azithromycin", "ciprofloxacin", "levofloxacin",
+            "doxycycline", "cephalexin", "clindamycin",
+
+            # Pain/Anti-inflammatory
+            "ibuprofen", "naproxen", "acetaminophen", "celecoxib",
+            "tramadol", "hydrocodone", "oxycodone", "morphine", "fentanyl",
+            "gabapentin", "pregabalin",
+
+            # Mental health
+            "sertraline", "fluoxetine", "escitalopram", "paroxetine",
+            "duloxetine", "venlafaxine", "bupropion", "mirtazapine",
+            "aripiprazole", "quetiapine", "risperidone", "olanzapine",
+            "alprazolam", "lorazepam", "clonazepam", "diazepam",
+
+            # Thyroid
+            "levothyroxine", "synthroid",
+
+            # Immunology
+            "prednisone", "methylprednisolone", "dexamethasone",
+            "humira", "enbrel", "remicade",
+
+            # Cancer
+            "tamoxifen", "anastrozole", "letrozole",
+
+            # Other common
+            "allopurinol", "colchicine", "vitamin d", "folic acid",
         ]
 
         all_adverse_events = []
 
-        for drug in common_drugs:
-            events = self.get_adverse_events_for_drug(drug, max_results=500)
+        for i, drug in enumerate(common_drugs):
+            logger.info(f"Collecting adverse events for {drug} ({i+1}/{len(common_drugs)})...")
+            events = self.get_adverse_events_for_drug(drug, max_results=2000)  # EXPANDED: 2K per drug
             all_adverse_events.extend(events)
 
             # Save per drug
