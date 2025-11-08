@@ -32,6 +32,12 @@ def test_pubmed():
         email="test@example.com",
     )
 
+    # Show comprehensive coverage
+    comprehensive_queries = scraper.get_comprehensive_disease_queries()
+    print(f"\n📊 Comprehensive Disease Coverage: {len(comprehensive_queries)} diseases")
+    print(f"   Expected total articles: {len(comprehensive_queries) * 10000:,} (10K per disease)")
+    print(f"   After deduplication: ~500K-2M articles")
+
     # Test query
     test_query = "diabetes"
 

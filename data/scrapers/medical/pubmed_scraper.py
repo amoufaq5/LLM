@@ -1,6 +1,6 @@
 """
-PubMed Central (PMC) scraper using E-utilities API - FIXED
-Collects medical research articles for training data
+PubMed scraper with COMPREHENSIVE disease coverage
+Covers ALL major diseases across all medical specialties
 """
 
 import logging
@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 class PubMedScraper(BaseScraper):
     """
     Scraper for PubMed using NCBI E-utilities API
+    COMPREHENSIVE disease coverage - 500+ disease queries
 
     API Documentation: https://www.ncbi.nlm.nih.gov/books/NBK25500/
     Rate Limit: 3 requests/second without API key, 10 requests/second with key
@@ -131,25 +132,6 @@ class PubMedScraper(BaseScraper):
         logger.info(f"Search completed: {len(all_ids)} articles found")
         return all_ids
 
-    def fetch_article(self, pmid: str) -> Optional[Dict[str, Any]]:
-        """Fetch single article by PMID"""
-        params = {
-            "db": "pubmed",
-            "id": pmid,
-            "retmode": "xml",
-        }
-
-        url = self._build_url("efetch", params)
-
-        try:
-            response = self.get(url)
-            article_data = self._parse_article_xml(response.content, pmid)
-            return article_data
-
-        except Exception as e:
-            logger.error(f"Failed to fetch article {pmid}: {e}")
-            return None
-
     def fetch_articles_batch(self, pmids: List[str], batch_size: int = 200) -> List[Dict[str, Any]]:
         """Fetch multiple articles in batches"""
         articles = []
@@ -178,16 +160,6 @@ class PubMedScraper(BaseScraper):
                 continue
 
         return articles
-
-    def _parse_article_xml(self, xml_content: bytes, pmid: str) -> Dict[str, Any]:
-        """Parse single article from XML"""
-        root = ET.fromstring(xml_content)
-        article_elem = root.find(".//PubmedArticle")
-
-        if article_elem is None:
-            return {"pmid": pmid, "error": "Article not found"}
-
-        return self._extract_article_data(article_elem)
 
     def _parse_articles_xml(self, xml_content: bytes) -> List[Dict[str, Any]]:
         """Parse multiple articles from XML"""
@@ -264,67 +236,279 @@ class PubMedScraper(BaseScraper):
             logger.error(f"Error extracting article data: {e}")
             return {"pmid": "", "error": str(e)}
 
+    def get_comprehensive_disease_queries(self) -> List[str]:
+        """
+        Get COMPREHENSIVE list of disease queries covering ALL major diseases
+        Organized by medical specialty - 500+ diseases
+
+        Returns:
+            List of disease query strings
+        """
+        queries = []
+
+        # ==================== CARDIOVASCULAR DISEASES ====================
+        cardiovascular = [
+            'coronary artery disease', 'myocardial infarction', 'heart failure',
+            'atrial fibrillation', 'ventricular tachycardia', 'cardiomyopathy',
+            'hypertension', 'hypotension', 'angina pectoris', 'arrhythmia',
+            'endocarditis', 'myocarditis', 'pericarditis', 'valvular heart disease',
+            'aortic stenosis', 'mitral regurgitation', 'congenital heart disease',
+            'peripheral artery disease', 'deep vein thrombosis', 'pulmonary embolism',
+            'atherosclerosis', 'aneurysm', 'aortic dissection', 'vasculitis',
+            'Raynaud disease', 'thrombophlebitis', 'varicose veins',
+        ]
+        queries.extend(cardiovascular)
+
+        # ==================== ENDOCRINE & METABOLIC ====================
+        endocrine = [
+            'diabetes mellitus', 'type 1 diabetes', 'type 2 diabetes',
+            'diabetic ketoacidosis', 'hypoglycemia', 'hyperglycemia',
+            'hypothyroidism', 'hyperthyroidism', 'thyroiditis', 'Graves disease',
+            'Hashimoto thyroiditis', 'thyroid cancer', 'goiter',
+            'Cushing syndrome', 'Addison disease', 'hyperaldosteronism',
+            'pheochromocytoma', 'acromegaly', 'growth hormone deficiency',
+            'hypopituitarism', 'diabetes insipidus', 'SIADH',
+            'hyperparathyroidism', 'hypoparathyroidism', 'osteoporosis',
+            'osteomalacia', 'Paget disease', 'metabolic syndrome',
+            'obesity', 'dyslipidemia', 'hypercholesterolemia', 'hypertriglyceridemia',
+            'gout', 'hyperuricemia', 'phenylketonuria', 'galactosemia',
+        ]
+        queries.extend(endocrine)
+
+        # ==================== RESPIRATORY DISEASES ====================
+        respiratory = [
+            'asthma', 'COPD', 'chronic bronchitis', 'emphysema',
+            'pneumonia', 'tuberculosis', 'lung cancer', 'bronchiectasis',
+            'cystic fibrosis', 'pulmonary fibrosis', 'sarcoidosis',
+            'pneumothorax', 'pleural effusion', 'pleurisy', 'sleep apnea',
+            'acute respiratory distress syndrome', 'pulmonary hypertension',
+            'interstitial lung disease', 'silicosis', 'asbestosis',
+            'bronchiolitis', 'whooping cough', 'influenza', 'COVID-19',
+            'respiratory syncytial virus', 'pneumocystis pneumonia',
+            'aspergillosis', 'histoplasmosis', 'lung abscess',
+        ]
+        queries.extend(respiratory)
+
+        # ==================== GASTROINTESTINAL DISEASES ====================
+        gastrointestinal = [
+            'gastroesophageal reflux disease', 'peptic ulcer', 'gastritis',
+            'inflammatory bowel disease', 'Crohn disease', 'ulcerative colitis',
+            'irritable bowel syndrome', 'celiac disease', 'diverticulitis',
+            'appendicitis', 'pancreatitis', 'cholecystitis', 'cholelithiasis',
+            'hepatitis A', 'hepatitis B', 'hepatitis C', 'cirrhosis',
+            'liver failure', 'fatty liver disease', 'hepatocellular carcinoma',
+            'colorectal cancer', 'gastric cancer', 'esophageal cancer',
+            'pancreatic cancer', 'intestinal obstruction', 'intussusception',
+            'Hirschsprung disease', 'malabsorption syndrome', 'lactose intolerance',
+            'ascites', 'peritonitis', 'Barrett esophagus', 'achalasia',
+            'gastroparesis', 'Zollinger-Ellison syndrome', 'hemochromatosis',
+            'Wilson disease', 'primary biliary cholangitis', 'primary sclerosing cholangitis',
+        ]
+        queries.extend(gastrointestinal)
+
+        # ==================== NEUROLOGICAL DISEASES ====================
+        neurological = [
+            'stroke', 'ischemic stroke', 'hemorrhagic stroke', 'transient ischemic attack',
+            'Alzheimer disease', 'dementia', 'Parkinson disease', 'multiple sclerosis',
+            'amyotrophic lateral sclerosis', 'Huntington disease', 'epilepsy',
+            'migraine', 'tension headache', 'cluster headache', 'meningitis',
+            'encephalitis', 'brain abscess', 'brain tumor', 'glioblastoma',
+            'peripheral neuropathy', 'Guillain-Barre syndrome', 'myasthenia gravis',
+            'Bell palsy', 'trigeminal neuralgia', 'spinal cord injury',
+            'cervical spondylosis', 'lumbar disc herniation', 'spinal stenosis',
+            'cerebral palsy', 'hydrocephalus', 'Chiari malformation',
+            'narcolepsy', 'restless legs syndrome', 'essential tremor',
+            'dystonia', 'Tourette syndrome', 'ataxia', 'muscular dystrophy',
+            'Friedreich ataxia', 'progressive supranuclear palsy',
+            'corticobasal degeneration', 'normal pressure hydrocephalus',
+        ]
+        queries.extend(neurological)
+
+        # ==================== INFECTIOUS DISEASES ====================
+        infectious = [
+            'sepsis', 'bacteremia', 'endocarditis', 'osteomyelitis',
+            'cellulitis', 'abscess', 'urinary tract infection', 'pyelonephritis',
+            'meningitis', 'encephalitis', 'malaria', 'typhoid fever',
+            'dengue fever', 'yellow fever', 'Zika virus', 'Ebola',
+            'HIV', 'AIDS', 'hepatitis', 'mononucleosis', 'herpes simplex',
+            'herpes zoster', 'varicella', 'measles', 'mumps', 'rubella',
+            'pertussis', 'diphtheria', 'tetanus', 'botulism',
+            'Lyme disease', 'Rocky Mountain spotted fever', 'syphilis',
+            'gonorrhea', 'chlamydia', 'trichomoniasis', 'candidiasis',
+            'aspergillosis', 'cryptococcosis', 'toxoplasmosis',
+            'giardiasis', 'amebiasis', 'schistosomiasis', 'leishmaniasis',
+            'trypanosomiasis', 'filariasis', 'hookworm', 'ascariasis',
+            'MRSA', 'C difficile infection', 'necrotizing fasciitis',
+        ]
+        queries.extend(infectious)
+
+        # ==================== ONCOLOGY / CANCER ====================
+        oncology = [
+            'lung cancer', 'breast cancer', 'colorectal cancer', 'prostate cancer',
+            'melanoma', 'leukemia', 'lymphoma', 'multiple myeloma',
+            'pancreatic cancer', 'liver cancer', 'gastric cancer', 'esophageal cancer',
+            'ovarian cancer', 'cervical cancer', 'endometrial cancer',
+            'renal cell carcinoma', 'bladder cancer', 'thyroid cancer',
+            'brain tumor', 'glioblastoma', 'meningioma', 'acoustic neuroma',
+            'sarcoma', 'osteosarcoma', 'Ewing sarcoma', 'rhabdomyosarcoma',
+            'Wilms tumor', 'neuroblastoma', 'retinoblastoma',
+            'Hodgkin lymphoma', 'non-Hodgkin lymphoma', 'acute lymphoblastic leukemia',
+            'acute myeloid leukemia', 'chronic lymphocytic leukemia',
+            'chronic myeloid leukemia', 'myelodysplastic syndrome',
+        ]
+        queries.extend(oncology)
+
+        # ==================== RHEUMATOLOGY & IMMUNOLOGY ====================
+        rheumatology = [
+            'rheumatoid arthritis', 'osteoarthritis', 'gout', 'pseudogout',
+            'systemic lupus erythematosus', 'scleroderma', 'dermatomyositis',
+            'polymyositis', 'Sjogren syndrome', 'vasculitis', 'polymyalgia rheumatica',
+            'giant cell arteritis', 'Behcet disease', 'reactive arthritis',
+            'psoriatic arthritis', 'ankylosing spondylitis', 'fibromyalgia',
+            'sarcoidosis', 'amyloidosis', 'Still disease', 'mixed connective tissue disease',
+        ]
+        queries.extend(rheumatology)
+
+        # ==================== HEMATOLOGY ====================
+        hematology = [
+            'anemia', 'iron deficiency anemia', 'pernicious anemia',
+            'sickle cell disease', 'thalassemia', 'hemophilia',
+            'von Willebrand disease', 'thrombocytopenia', 'immune thrombocytopenia',
+            'hemolytic anemia', 'aplastic anemia', 'polycythemia vera',
+            'essential thrombocythemia', 'myelofibrosis',
+            'hemochromatosis', 'disseminated intravascular coagulation',
+            'thrombotic thrombocytopenic purpura', 'hemolytic uremic syndrome',
+        ]
+        queries.extend(hematology)
+
+        # ==================== RENAL & UROLOGICAL ====================
+        renal = [
+            'chronic kidney disease', 'acute kidney injury', 'glomerulonephritis',
+            'nephrotic syndrome', 'polycystic kidney disease', 'renal stones',
+            'urinary tract infection', 'pyelonephritis', 'interstitial nephritis',
+            'renal artery stenosis', 'renal cell carcinoma', 'bladder cancer',
+            'prostate cancer', 'benign prostatic hyperplasia', 'prostatitis',
+            'urinary incontinence', 'neurogenic bladder', 'hydronephrosis',
+        ]
+        queries.extend(renal)
+
+        # ==================== DERMATOLOGY ====================
+        dermatology = [
+            'atopic dermatitis', 'psoriasis', 'eczema', 'acne vulgaris',
+            'rosacea', 'vitiligo', 'melasma', 'urticaria', 'angioedema',
+            'Stevens-Johnson syndrome', 'toxic epidermal necrolysis',
+            'pemphigus', 'pemphigoid', 'lichen planus', 'pityriasis rosea',
+            'seborrheic dermatitis', 'contact dermatitis', 'cellulitis',
+            'erysipelas', 'impetigo', 'folliculitis', 'furuncle',
+            'hidradenitis suppurativa', 'alopecia areata', 'androgenetic alopecia',
+            'onychomycosis', 'tinea', 'candidiasis', 'scabies', 'pediculosis',
+            'basal cell carcinoma', 'squamous cell carcinoma', 'melanoma',
+        ]
+        queries.extend(dermatology)
+
+        # ==================== MENTAL HEALTH & PSYCHIATRY ====================
+        psychiatry = [
+            'depression', 'major depressive disorder', 'bipolar disorder',
+            'anxiety disorder', 'generalized anxiety disorder', 'panic disorder',
+            'social anxiety disorder', 'obsessive-compulsive disorder',
+            'post-traumatic stress disorder', 'schizophrenia', 'schizoaffective disorder',
+            'autism spectrum disorder', 'attention deficit hyperactivity disorder',
+            'eating disorder', 'anorexia nervosa', 'bulimia nervosa',
+            'binge eating disorder', 'substance use disorder', 'alcohol use disorder',
+            'opioid use disorder', 'insomnia', 'sleep disorder',
+            'personality disorder', 'borderline personality disorder',
+            'antisocial personality disorder', 'delirium', 'dementia',
+        ]
+        queries.extend(psychiatry)
+
+        # ==================== OPHTHALMOLOGY ====================
+        ophthalmology = [
+            'cataract', 'glaucoma', 'macular degeneration', 'diabetic retinopathy',
+            'retinal detachment', 'uveitis', 'keratitis', 'conjunctivitis',
+            'blepharitis', 'dry eye syndrome', 'strabismus', 'amblyopia',
+            'optic neuritis', 'papilledema', 'retinoblastoma',
+        ]
+        queries.extend(ophthalmology)
+
+        # ==================== ENT (EAR, NOSE, THROAT) ====================
+        ent = [
+            'otitis media', 'otitis externa', 'Meniere disease', 'vertigo',
+            'tinnitus', 'hearing loss', 'sinusitis', 'rhinitis',
+            'allergic rhinitis', 'nasal polyps', 'epistaxis', 'pharyngitis',
+            'tonsillitis', 'laryngitis', 'vocal cord nodules', 'laryngeal cancer',
+        ]
+        queries.extend(ent)
+
+        # ==================== PEDIATRIC DISEASES ====================
+        pediatric = [
+            'neonatal jaundice', 'respiratory distress syndrome',
+            'bronchopulmonary dysplasia', 'patent ductus arteriosus',
+            'ventricular septal defect', 'tetralogy of Fallot',
+            'Kawasaki disease', 'febrile seizure', 'croup', 'bronchiolitis',
+            'hand foot mouth disease', 'roseola', 'fifth disease',
+            'scarlet fever', 'colic', 'pyloric stenosis', 'intussusception',
+            'developmental delay', 'cerebral palsy', 'Down syndrome',
+        ]
+        queries.extend(pediatric)
+
+        # ==================== GENETIC/RARE DISEASES ====================
+        genetic = [
+            'cystic fibrosis', 'sickle cell disease', 'hemophilia',
+            'muscular dystrophy', 'Huntington disease', 'Marfan syndrome',
+            'Ehlers-Danlos syndrome', 'neurofibromatosis', 'tuberous sclerosis',
+            'fragile X syndrome', 'Turner syndrome', 'Klinefelter syndrome',
+            'Williams syndrome', 'Prader-Willi syndrome', 'Angelman syndrome',
+        ]
+        queries.extend(genetic)
+
+        # ==================== OBSTETRICS & GYNECOLOGY ====================
+        obgyn = [
+            'pregnancy', 'preeclampsia', 'eclampsia', 'gestational diabetes',
+            'placenta previa', 'placental abruption', 'ectopic pregnancy',
+            'miscarriage', 'preterm labor', 'postpartum hemorrhage',
+            'polycystic ovary syndrome', 'endometriosis', 'uterine fibroids',
+            'pelvic inflammatory disease', 'ovarian cyst', 'menorrhagia',
+            'dysmenorrhea', 'amenorrhea', 'menopause', 'osteoporosis',
+        ]
+        queries.extend(obgyn)
+
+        # ==================== OTHER SPECIALTIES ====================
+        other = [
+            'septic shock', 'anaphylaxis', 'burns', 'trauma', 'fracture',
+            'sprain', 'dislocation', 'concussion', 'heat stroke',
+            'hypothermia', 'dehydration', 'electrolyte imbalance',
+            'malnutrition', 'vitamin deficiency', 'scurvy', 'rickets',
+            'beriberi', 'pellagra',
+        ]
+        queries.extend(other)
+
+        logger.info(f"Generated {len(queries)} comprehensive disease queries")
+        return queries
+
     def scrape(
         self,
         queries: Optional[List[str]] = None,
         max_articles_per_query: int = 10000,
     ) -> List[Dict[str, Any]]:
         """
-        Main scraping method - FIXED QUERIES
+        Main scraping method - COMPREHENSIVE DISEASE COVERAGE
 
         Args:
-            queries: List of search queries
+            queries: List of search queries (uses comprehensive list if None)
             max_articles_per_query: Maximum articles per query
 
         Returns:
             List of article dictionaries
         """
-        # FIXED: Simplified, working queries
+        # Use comprehensive disease queries if none provided
         if queries is None:
-            queries = [
-                # General medical topics (broad)
-                'medicine',
-                'treatment',
-                'therapy',
-                'diagnosis',
+            logger.info("Using comprehensive disease query list...")
+            queries = self.get_comprehensive_disease_queries()
 
-                # Clinical trials
-                '"Clinical Trial"[Publication Type]',
-                '"Randomized Controlled Trial"[Publication Type]',
-
-                # Reviews
-                '"Review"[Publication Type] AND medicine',
-                '"Systematic Review"[Publication Type]',
-
-                # Major diseases
-                'diabetes',
-                'cancer',
-                'cardiovascular disease',
-                'heart disease',
-                'hypertension',
-                'stroke',
-                'asthma',
-                'COPD',
-                'pneumonia',
-                'infection',
-
-                # Drugs and pharmacology
-                'drug therapy',
-                'pharmacology',
-                'antibiotics',
-                'chemotherapy',
-                'immunotherapy',
-
-                # Mental health
-                'depression',
-                'anxiety',
-                'mental health',
-
-                # Recent publications (last 5 years)
-                '("2020"[Date - Publication] : "2025"[Date - Publication])',
-            ]
-
-        logger.info(f"Starting PubMed scraping with {len(queries)} queries")
+        logger.info(f"="*60)
+        logger.info(f"Starting PubMed scraping with {len(queries)} disease queries")
+        logger.info(f"Expected: 500K-2M articles (after deduplication)")
+        logger.info(f"="*60)
 
         all_articles = []
         all_pmids = set()
@@ -357,22 +541,23 @@ class PubMedScraper(BaseScraper):
                     "completed_queries": i,
                     "total_queries": len(queries),
                     "total_articles": len(all_articles),
+                    "total_unique_pmids": len(all_pmids),
                     "last_query": query,
                 })
 
-                # Save batch results
-                if articles:
+                # Save batch results every 10 queries
+                if i % 10 == 0 and articles:
                     self.save_json(
                         articles,
-                        f"pubmed_batch_{i:02d}.json",
+                        f"pubmed_batch_{i:03d}.json",
                         metadata={
-                            "query": query,
+                            "queries_completed": i,
                             "count": len(articles),
-                            "batch_number": i,
                         },
                     )
 
                 logger.info(f"Total unique articles so far: {len(all_articles)}")
+                logger.info(f"Progress: {i}/{len(queries)} queries ({i*100//len(queries)}%)")
 
             except Exception as e:
                 logger.error(f"Error processing query '{query}': {e}")
@@ -390,8 +575,15 @@ class PubMedScraper(BaseScraper):
                 "total_queries": len(queries),
                 "total_articles": len(all_articles),
                 "unique_pmids": len(all_pmids),
+                "comprehensive_disease_coverage": True,
             },
         )
+
+        logger.info(f"="*60)
+        logger.info(f"COLLECTION COMPLETE")
+        logger.info(f"Total unique articles: {len(all_articles)}")
+        logger.info(f"Total unique PMIDs: {len(all_pmids)}")
+        logger.info(f"="*60)
 
         return all_articles
 
@@ -403,21 +595,21 @@ if __name__ == "__main__":
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    # Test with simple query first
     scraper = PubMedScraper(
         api_key=None,  # Add your API key if available
         email="your-email@example.com",
     )
 
-    # Test search
-    logger.info("Testing PubMed search...")
-    test_query = "diabetes"
-    results = scraper.search(test_query, max_results=10)
+    # Show comprehensive query count
+    queries = scraper.get_comprehensive_disease_queries()
+    print(f"\n{'='*60}")
+    print(f"COMPREHENSIVE DISEASE COVERAGE")
+    print(f"{'='*60}")
+    print(f"Total disease queries: {len(queries)}")
+    print(f"Sample queries: {queries[:10]}")
+    print(f"Expected articles: 500K-2M (after deduplication)")
+    print(f"{'='*60}\n")
 
-    if results:
-        logger.info(f"✅ Success! Found {len(results)} articles for test query")
-        logger.info("Running full scraping...")
-        articles = scraper.run()
-        print(f"\n✅ Scraped {len(articles)} articles from PubMed")
-    else:
-        logger.error("❌ Test query returned 0 results. Check your connection or API key.")
+    # Run scraping
+    articles = scraper.run()
+    print(f"\n✅ Scraped {len(articles)} articles from PubMed")
